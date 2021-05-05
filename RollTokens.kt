@@ -18,9 +18,14 @@ object RollTokens {
         Scanners.isChar('\t'),
         Scanners.isChar('\n')
     )
-    val ws: Parser<Unit> = or(
+    private val botName: Parser<Void> = or(
+        Scanners.string("@HowURollemTestBot"),
+        Scanners.string("@HowURollemBot")
+    )
+    private val ws: Parser<Unit> = or(
         whitespace,
-        lineComment
+        lineComment,
+        botName
     ).many().map {}
 
     val slashRoll: Parser<Void> = Scanners.string("/roll").between(ws, ws)

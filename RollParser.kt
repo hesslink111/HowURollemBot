@@ -52,25 +52,25 @@ class RollParser(private val dice: Dice) {
         return p
     }
 
-    private fun k(): Parser<K> = or(
+    private fun k(parser: Parser<RollEvaluator>): Parser<K> = or(
         sequence(
             sequence(
                 RollTokens.kh,
-                RollTokens.int
+                parens(parser)
             ) { _, a -> a },
             sequence(
                 RollTokens.kl,
-                RollTokens.int
+                parens(parser)
             ) { _, a -> a }.asOptional(),
         ) { a, b -> K(a, b.orElseGet { null }) },
         sequence(
             sequence(
                 RollTokens.kl,
-                RollTokens.int
+                parens(parser)
             ) { _, a -> a },
             sequence(
                 RollTokens.kh,
-                RollTokens.int
+                parens(parser)
             ) { _, a -> a }.asOptional(),
         ) { b, a -> K(a.orElseGet { null }, b) }
     )
@@ -81,8 +81,8 @@ class RollParser(private val dice: Dice) {
         sequence(
             parens(parser).optional(Atomic(1)),
             RollTokens.d,
-            RollTokens.int,
-            k().optional(K(null, null))
+            parens(parser),
+            k(parser).optional(K(null, null))
         ) { a, _, b, (kh, kl) -> DiceRoll(a, b, kh, kl, dice) },
         parens(parser)
     )
