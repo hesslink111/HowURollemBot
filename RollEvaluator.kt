@@ -44,7 +44,7 @@ class DiceRoll(
     dice: Dice
 ): RollEvaluator {
     init {
-        if(x.eval() > 10000) {
+        if(x.eval() > 1000) {
             throw IllegalArgumentException("Number of dice too high: ${x.eval()}")
         }
     }
