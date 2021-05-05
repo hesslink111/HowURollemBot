@@ -56,21 +56,21 @@ class RollParser(private val dice: Dice) {
         sequence(
             sequence(
                 RollTokens.kh,
-                parens(parser)
+                parens(parser).optional(Atomic(1))
             ) { _, a -> a },
             sequence(
                 RollTokens.kl,
-                parens(parser)
+                parens(parser).optional(Atomic(1))
             ) { _, a -> a }.asOptional(),
         ) { a, b -> K(a, b.orElseGet { null }) },
         sequence(
             sequence(
                 RollTokens.kl,
-                parens(parser)
+                parens(parser).optional(Atomic(1))
             ) { _, a -> a },
             sequence(
                 RollTokens.kh,
-                parens(parser)
+                parens(parser).optional(Atomic(1))
             ) { _, a -> a }.asOptional(),
         ) { b, a -> K(a.orElseGet { null }, b) }
     )

@@ -18,17 +18,12 @@ object RollTokens {
         Scanners.isChar('\t'),
         Scanners.isChar('\n')
     )
-    private val botName: Parser<Void> = or(
-        Scanners.string("@HowURollemTestBot"),
-        Scanners.string("@HowURollemBot")
-    )
     private val ws: Parser<Unit> = or(
         whitespace,
         lineComment,
-        botName
     ).many().map {}
 
-    val slashRoll: Parser<Void> = Scanners.string("/roll").between(ws, ws)
+    val slashRoll: Parser<Void> = Scanners.stringCaseInsensitive("/roll").between(ws, ws)
 
     val plus: Parser<(Int, Int) -> Int> = Scanners.string("+").between(ws, ws)
         .map { { a, b -> a + b } }
@@ -40,9 +35,9 @@ object RollTokens {
     val div: Parser<(Int, Int) -> Int> = Scanners.string("/").between(ws, ws)
         .map { { a, b -> a / b } }
 
-    val d: Parser<Void> = Scanners.string("d").between(ws, ws)
-    val kh: Parser<Void> = Scanners.string("kh").between(ws, ws)
-    val kl: Parser<Void> = Scanners.string("kl").between(ws, ws)
+    val d: Parser<Void> = Scanners.stringCaseInsensitive("d").between(ws, ws)
+    val kh: Parser<Void> = Scanners.stringCaseInsensitive("kh").between(ws, ws)
+    val kl: Parser<Void> = Scanners.stringCaseInsensitive("kl").between(ws, ws)
 
     val int: Parser<RollEvaluator> = sequence(
         or(plus, minus).optional { _, b -> b },

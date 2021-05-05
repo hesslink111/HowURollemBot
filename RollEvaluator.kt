@@ -3,6 +3,7 @@ package io.deltawave.primaryserver.roll
 import java.lang.StringBuilder
 
 interface RollEvaluator {
+    fun specialCircumstances(specials: MutableSet<String>)
     fun printParseTree(builder: StringBuilder)
     fun print(builder: StringBuilder)
     fun eval(): Int
@@ -14,6 +15,10 @@ class Operation(
     private val op: (Int, Int) -> Int,
     private val b: RollEvaluator
 ): RollEvaluator {
+    override fun specialCircumstances(specials: MutableSet<String>) {
+        // None.
+    }
+
     override fun printParseTree(builder: StringBuilder) {
         a.printParseTree(builder)
         builder.append(" $opSymbol ")
@@ -38,6 +43,11 @@ class DiceRoll(
     private val kl: RollEvaluator?,
     dice: Dice
 ): RollEvaluator {
+    init {
+        if(x.eval() > 10000) {
+            throw IllegalArgumentException("Number of dice too high: ${x.eval()}")
+        }
+    }
     private val values = (0 until x.eval()).mapIndexed { i, _ -> i to dice.roll(y.eval()) }
     private val keepHigh = (kh ?: x.takeIf { kl == null } ?: Atomic(0)).eval()
     private val keepLow = (kl ?: x.takeIf { kh == null } ?: Atomic(0)).eval()
@@ -46,6 +56,12 @@ class DiceRoll(
     private val low = values.sortedByDescending { (_, v) -> v }
         .takeLast(keepLow)
     private val kept = (high.map { (i, _) -> i } + low.map { (i, _) -> i }).toSet()
+
+    override fun specialCircumstances(specials: MutableSet<String>) {
+        if(y.eval() == 20 && values.any { (i, v) -> i in kept && v == 20 }) {
+            specials.add("#Natural20")
+        }
+    }
 
     override fun printParseTree(builder: StringBuilder) {
         x.printParseTree(builder)
@@ -84,6 +100,10 @@ class DiceRoll(
 }
 
 class Parens(private val a: RollEvaluator): RollEvaluator {
+    override fun specialCircumstances(specials: MutableSet<String>) {
+        // None.
+    }
+
     override fun printParseTree(builder: StringBuilder) {
         builder.append("( ")
         a.printParseTree(builder)
@@ -102,6 +122,10 @@ class Parens(private val a: RollEvaluator): RollEvaluator {
 }
 
 class Atomic(private val i: Int): RollEvaluator {
+    override fun specialCircumstances(specials: MutableSet<String>) {
+        // None.
+    }
+
     override fun printParseTree(builder: StringBuilder) {
         builder.append(i)
     }
