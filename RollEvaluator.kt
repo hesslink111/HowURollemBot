@@ -1,38 +1,43 @@
 package io.deltawave.primaryserver.roll
 
+import com.pengrad.telegrambot.model.MessageEntity
 import java.lang.StringBuilder
 
 interface RollEvaluator {
     fun specialCircumstances(specials: MutableSet<String>)
-    fun printParseTree(builder: StringBuilder)
-    fun print(builder: StringBuilder)
+    fun printParseTree(builder: StringBuilder, command: Boolean)
+    fun print(builder: TStringBuilder)
     fun eval(): Int
 }
 
 class Operation(
     private val a: RollEvaluator,
     private val opSymbol: String,
-    private val op: (Int, Int) -> Int,
+    private val opCommand: String,
+    private val operation: (Int, Int) -> Int,
     private val b: RollEvaluator
 ): RollEvaluator {
     override fun specialCircumstances(specials: MutableSet<String>) {
         // None.
     }
 
-    override fun printParseTree(builder: StringBuilder) {
-        a.printParseTree(builder)
-        builder.append(" $opSymbol ")
-        b.printParseTree(builder)
+    override fun printParseTree(builder: StringBuilder, command: Boolean) {
+        val sp = if(command) "" else " "
+        val op = if(command) opCommand else opSymbol
+
+        a.printParseTree(builder, command)
+        builder.append("$sp$op$sp")
+        b.printParseTree(builder, command)
     }
 
-    override fun print(builder: StringBuilder) {
+    override fun print(builder: TStringBuilder) {
         a.print(builder)
         builder.append(" $opSymbol ")
         b.print(builder)
     }
 
     override fun eval(): Int {
-        return op(a.eval(), b.eval())
+        return operation(a.eval(), b.eval())
     }
 }
 
@@ -49,8 +54,8 @@ class DiceRoll(
         }
     }
     private val values = (0 until x.eval()).mapIndexed { i, _ -> i to dice.roll(y.eval()) }
-    private val keepHigh = (kh ?: x.takeIf { kl == null } ?: Atomic(0)).eval()
-    private val keepLow = (kl ?: x.takeIf { kh == null } ?: Atomic(0)).eval()
+    private val keepHigh = (kh ?: x.takeIf { kl == null })?.eval() ?: 0
+    private val keepLow = (kl ?: x.takeIf { kh == null })?.eval() ?: 0
     private val high = values.sortedByDescending { (_, v) -> v }
         .take(keepHigh)
     private val low = values.sortedByDescending { (_, v) -> v }
@@ -63,33 +68,39 @@ class DiceRoll(
         }
     }
 
-    override fun printParseTree(builder: StringBuilder) {
-        x.printParseTree(builder)
+    override fun printParseTree(builder: StringBuilder, command: Boolean) {
+        x.printParseTree(builder, command)
         builder.append("d")
-        y.printParseTree(builder)
+        y.printParseTree(builder, command)
         if(kh != null) {
             builder.append("kh")
-            kh.printParseTree(builder)
+            kh.printParseTree(builder, command)
         }
         if(kl != null) {
             builder.append("kl")
-            kl.printParseTree(builder)
+            kl.printParseTree(builder, command)
         }
     }
 
-    override fun print(builder: StringBuilder) {
+    override fun print(builder: TStringBuilder) {
+        builder.append("( ")
+
         for(i in 0 until x.eval()) {
             if(i > 0) {
                 builder.append(" + ")
             }
 
-            val highestPrefix = if(values[i].second == y.eval()) "<u>" else ""
-            val highestPostfix = if(values[i].second == y.eval()) "</u>" else ""
-            val keptPrefix = if(values[i].first !in kept) "<s>" else ""
-            val keptPostfix = if(values[i].first !in kept) "</s>" else ""
-
-            builder.append("$keptPrefix$highestPrefix${values[i].second}$highestPostfix$keptPostfix")
+            builder.append(values[i].second.toString(), listOfNotNull(
+                if(values[i].second == y.eval()) MessageEntity.Type.underline else null,
+                if(values[i].first !in kept) MessageEntity.Type.strikethrough else null
+            ))
         }
+
+        if(x.eval() == 0) {
+            builder.append("0")
+        }
+
+        builder.append(" )")
     }
 
     override fun eval(): Int {
@@ -104,13 +115,16 @@ class Parens(private val a: RollEvaluator): RollEvaluator {
         // None.
     }
 
-    override fun printParseTree(builder: StringBuilder) {
-        builder.append("( ")
-        a.printParseTree(builder)
-        builder.append(" )")
+    override fun printParseTree(builder: StringBuilder, command: Boolean) {
+        val sp = if(command) "" else " "
+        val openParen = if(command) "open" else "("
+        val closeParen = if(command) "close" else ")"
+        builder.append("$openParen$sp")
+        a.printParseTree(builder, command)
+        builder.append("$sp$closeParen")
     }
 
-    override fun print(builder: StringBuilder) {
+    override fun print(builder: TStringBuilder) {
         builder.append("( ")
         a.print(builder)
         builder.append(" )")
@@ -126,12 +140,12 @@ class Atomic(private val i: Int): RollEvaluator {
         // None.
     }
 
-    override fun printParseTree(builder: StringBuilder) {
-        builder.append(i)
+    override fun printParseTree(builder: StringBuilder, command: Boolean) {
+        builder.append(i.toString())
     }
 
-    override fun print(builder: StringBuilder) {
-        builder.append(i)
+    override fun print(builder: TStringBuilder) {
+        builder.append(i.toString())
     }
 
     override fun eval(): Int {

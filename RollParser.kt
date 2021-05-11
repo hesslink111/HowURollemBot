@@ -28,9 +28,12 @@ class RollParser(private val dice: Dice) {
         val p = or(
             sequence(
                 multiplicative(parser),
-                or(RollTokens.plus.map { "+" to it }, RollTokens.minus.map { "-" to it }),
+                or(
+                    RollTokens.plus.map { Triple("+", "plus", it) },
+                    RollTokens.minus.map { Triple("-", "minus", it) }
+                ),
                 ref.lazy()
-            ) { a, (symbol, op), b -> Operation(a, symbol, op, b) },
+            ) { a, (symbol, cmd, op), b -> Operation(a, symbol, cmd, op, b) },
             multiplicative(parser)
         )
         ref.set(p)
@@ -43,9 +46,12 @@ class RollParser(private val dice: Dice) {
         val p = or(
             sequence(
                 d(parser),
-                or(RollTokens.times.map { "*" to it }, RollTokens.div.map { "/" to it }),
+                or(
+                    RollTokens.times.map { Triple("*", "times", it) },
+                    RollTokens.div.map { Triple("/", "div", it) }
+                ),
                 ref.lazy()
-            ) { a, (symbol, op), b -> Operation(a, symbol, op, b) },
+            ) { a, (symbol, cmd, op), b -> Operation(a, symbol, cmd, op, b) },
             d(parser)
         )
         ref.set(p)

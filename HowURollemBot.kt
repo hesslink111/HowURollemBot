@@ -4,7 +4,7 @@ import com.pengrad.telegrambot.TelegramBot
 import com.pengrad.telegrambot.UpdatesListener
 import com.pengrad.telegrambot.model.MessageEntity
 import com.pengrad.telegrambot.model.Update
-import com.pengrad.telegrambot.model.request.ParseMode
+import com.pengrad.telegrambot.model.request.ReplyKeyboardMarkup
 import com.pengrad.telegrambot.request.SendMessage
 
 @ExperimentalStdlibApi
@@ -35,37 +35,61 @@ class HowURollemBot(
         val username = message.from().username()
             ?: message.from().firstName()
             ?: message.from().lastName()
-        val text = message.text()
+        val messageText = message.text()
             .replace("@HowURollemTestBot", "")
             .replace("@HowURollemBot", "")
             .trim()
 
-        if(!text.startsWith("/roll")) {
+        if(!messageText.startsWith("/roll")) {
             return
         }
 
         val editMessage = if(update.editedMessage() != null) "Edit: " else ""
 
-        val responseText = editMessage + try {
-            val evaluator = rollParser.parse(text)
-            val parsedText = buildString(evaluator::printParseTree)
-            val fullEvaluation = buildString(evaluator::print)
-            val fullPreview = "$parsedText ➞ $fullEvaluation"
-            val preview = if(fullPreview.length <= 3000) {
-                fullPreview
-            } else {
-                fullPreview.take(3000) + "..."
-            }
+        // Evaluate roll and build response.
+        val (responseText, entities, isError) = try {
+            val evaluator = rollParser.parse(messageText)
+
             val specials = buildSet(evaluator::specialCircumstances)
             val result = evaluator.eval()
-            """
-                @$username rolled:
-                 $preview
-                <b>$result</b> ${specialMessage(result, specials)}
-            """.trimIndent()
+
+            val tStringBuilder = TStringBuilder()
+
+            // Name
+            tStringBuilder.append(editMessage)
+            tStringBuilder.append("@$username") { o, l -> listOf(
+                MessageEntity(MessageEntity.Type.text_mention, o, l)
+                    .user(message.from())
+            ) }
+            tStringBuilder.append(": ")
+
+            // Command
+            val args = buildString { evaluator.printParseTree(this, command=true) }
+            val command = "/roll$args"
+            tStringBuilder.append(command, listOf(MessageEntity.Type.bot_command))
+            tStringBuilder.append("\n")
+
+            // Preview
+            val parseTree = buildString { evaluator.printParseTree(this, command=false) }
+            tStringBuilder.append(" ")
+            tStringBuilder.append(parseTree)
+            tStringBuilder.append(" ➞ ")
+            evaluator.print(tStringBuilder)
+            if(tStringBuilder.size > 3000 || tStringBuilder.entityCount > 90) {
+                tStringBuilder.shortenToLeq(3000, 90)
+                tStringBuilder.append("...")
+            }
+            tStringBuilder.append("\n")
+
+            // Result
+            tStringBuilder.append("$result ${specialMessage(result, specials)}", listOf(MessageEntity.Type.bold))
+
+            val (text, entities) = tStringBuilder.toTString()
+
+            Triple(text, entities, false)
         } catch(ex: Exception) {
             println("Ex: $ex")
-            errorMessage(username)
+            Triple(editMessage + errorMessage(username), emptyList(), true)
         }
 
         val response = SendMessage(
@@ -73,7 +97,21 @@ class HowURollemBot(
             responseText
         )
             .replyToMessageId(message.messageId())
-            .parseMode(ParseMode.HTML)
+            .entities(*entities.toTypedArray())
+
+        // Show roll examples.
+        if(isError) {
+            response.replyMarkup(
+                ReplyKeyboardMarkup(
+                    arrayOf("/roll d20", "/roll 2d20"),
+                    arrayOf("/roll 2d20kh", "/roll 2d20kl")
+                )
+                    .oneTimeKeyboard(true)
+                    .selective(true)
+            )
+        }
+
+        // Send message.
         bot.execute(response)
     }
 }
