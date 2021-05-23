@@ -54,10 +54,9 @@ object RollTokens {
     val kh: Parser<Void> = stringCaseInsensitive("kh").between(ws, ws)
     val kl: Parser<Void> = stringCaseInsensitive("kl").between(ws, ws)
 
-    val int: Parser<RollEvaluator> = sequence(
-        or(plus, minus).optional { _, b -> b },
-        Scanners.INTEGER
-    ) { op, i -> Atomic(op(0, i.toInt())) as RollEvaluator }.between(ws, ws)
+    val int: Parser<RollEvaluator> = Scanners.INTEGER
+        .map { i -> Atomic(i.toInt()) as RollEvaluator }
+        .between(ws, ws)
 
     val openParen: Parser<Void> = or(
         string("("),
